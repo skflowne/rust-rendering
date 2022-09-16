@@ -23,12 +23,12 @@ impl ColorBuffer {
 
     pub fn set_pixel(&mut self, x: usize, y: usize, color: u32) {
         let pixel_data = color.to_le_bytes();
-        let pixel_index = (self.width * y * 4) + x * 4;
+        let pixel_index = ((self.width * y) + x) * 4;
 
         self.pixels[pixel_index..pixel_index + 4].copy_from_slice(&pixel_data);
     }
 
-    pub fn pixel_data(&self) -> &[u8] {
+    pub fn pixels(&self) -> &[u8] {
         &self.pixels
     }
 }

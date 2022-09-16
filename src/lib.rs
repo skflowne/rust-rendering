@@ -1,10 +1,10 @@
-use std::time::Duration;
+use std::{convert::TryFrom, time::Duration};
 
 use buffer::ColorBuffer;
 use sdl2::{
     event::Event,
     keyboard::Keycode,
-    pixels::{Color, PixelFormatEnum},
+    pixels::{Color, PixelFormat, PixelFormatEnum},
     render::{Canvas, Texture},
     video::Window,
     EventPump,
@@ -19,7 +19,7 @@ pub fn run() {
 }
 
 fn setup() -> WindowCtx {
-    WindowCtx::build("3dRendererer", 800, 600)
+    WindowCtx::build("3dRendererer", 2, 2)
 }
 
 fn main_loop(ctx: &mut WindowCtx) {
@@ -28,8 +28,8 @@ fn main_loop(ctx: &mut WindowCtx) {
         .create_texture(
             PixelFormatEnum::ARGB8888,
             sdl2::render::TextureAccess::Streaming,
-            800,
-            600,
+            ctx.width as u32,
+            ctx.height as u32,
         )
         .unwrap();
 
@@ -71,7 +71,7 @@ impl WindowCtx {
             .window(title, width, height)
             .borderless()
             .position_centered()
-            //.fullscreen()
+            .fullscreen()
             .build()
             .unwrap();
 
@@ -133,27 +133,43 @@ impl WindowCtx {
             height
         };*/
 
-        println!("Draw rect x:{} y:{} w:{} h:{}", x, y, width, height);
-
-        for ry in 0..self.height {
+        /*for ry in 0..self.height {
             for rx in 0..self.width {
-                if rx >= x && rx <= x + width && ry >= y && ry <= y + height {
-                    self.color_buffer.set_pixel(rx, ry, color);
-                }
+                //if rx >= x && rx <= x + width && ry >= y && ry <= y + height {
+                //let r: u8 = ((rx / 1920) * 255);
+                //let g: u8 = ((ry / 1080) * 255);
+                let xr: f64 = (rx as f64) / (self.width as f64);
+                let r: u8 = (xr * 255_f64) as u8;
+
+                let yr: f64 = (ry as f64) / (self.height as f64);
+                let g: u8 = (yr * 255_f64) as u8;
+
+                let color: u32 = u32::from_le_bytes([0, 0, g, 0]);
+                // format!("0x{}{}{}{}", "FF", r, g, "00").parse().unwrap();
+
+                //println!("color {}", color);
+                self.color_buffer.set_pixel(rx, ry, color);
+                //}
             }
-        }
-        /*
+        }*/
+
         for ry in y..y + height {
             for rx in x..x + width {
                 self.color_buffer.set_pixel(rx, ry, color)
             }
-        }*/
+        }
     }
 
     fn render(&mut self, texture: &mut Texture) {
-        self.color_buffer.clear(0xFFFF00);
+        self.color_buffer.clear(0xFFFFFF00);
         self.draw_grid(10, Some(0xFF999999));
-        self.draw_rect(10, 10, 10, self.height - 20, 0xFFFF0000);
+        self.draw_rect(
+            self.width / 4,
+            self.height / 4,
+            self.width / 2,
+            self.height / 2,
+            0xFFFF0000,
+        );
 
         self.copy_buffer_to_canvas(texture);
 
@@ -162,7 +178,7 @@ impl WindowCtx {
 
     fn copy_buffer_to_canvas(&mut self, texture: &mut Texture) {
         texture
-            .update(None, self.color_buffer.pixel_data(), self.width * 4)
+            .update(None, self.color_buffer.pixels(), self.width * 4)
             .unwrap();
         self.canvas.copy(texture, None, None).unwrap();
     }
