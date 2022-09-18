@@ -18,22 +18,14 @@ pub struct EngineConfig {
     pub clear_color: u32,
 }
 
-pub struct EngineUpdate<'a> {
-    update_fn: &'a mut dyn FnMut(&mut Engine),
-}
-
-impl<'a> EngineUpdate<'a> {
-    pub fn new(f: &'a mut dyn FnMut(&mut Engine)) -> EngineUpdate {
-        EngineUpdate { update_fn: f }
-    }
-}
+type EngineUpdateFn<'a> = &'a mut dyn FnMut(&mut Engine);
 
 pub struct Engine<'a> {
     config: EngineConfig,
     canvas: Canvas<Window>,
     color_buffer: ColorBuffer,
     event_pump: EventPump,
-    update: Option<EngineUpdate<'a>>,
+    update: Option<EngineUpdateFn<'a>>,
 }
 
 impl<'a> Engine<'a> {
@@ -102,16 +94,20 @@ impl<'a> Engine<'a> {
         true
     }
 
-    pub fn on_update(&mut self, update: EngineUpdate<'a>) {
+    pub fn on_update(&mut self, update: EngineUpdateFn<'a>) {
         self.update = Some(update);
         self.update();
     }
 
     fn custom_update(&mut self) {
-        let up: *mut EngineUpdate = self.update.as_mut().unwrap();
+        let f: *mut EngineUpdateFn<'a> = self.update.as_mut().unwrap();
+        unsafe {
+            (*f)(self);
+        }
+        /*let up: *mut EngineUpdateFn = self.update.unwrap();
         unsafe {
             ((*up).update_fn)(self);
-        }
+        }*/
     }
 
     fn update(&mut self) {

@@ -16,7 +16,7 @@ pub fn main() {
     let mut rotation = Vec3(0.0, 0.0, 0.0);
 
     println!("Start update");
-    eng.on_update(EngineUpdate::new(&mut |eng: &mut Engine| {
+    eng.on_update(&mut |eng: &mut Engine| {
         eng.draw_grid(10, Some(0xFF333333));
         rotation = rotation + Vec3(0.01, 0.02, 0.0);
 
@@ -32,7 +32,7 @@ pub fn main() {
 
             eng.draw_rect(x as usize, y as usize, 4, 4, 0xFFFF0000);
         });
-    }));
+    });
 }
 
 fn build_cube() -> Vec<Vec3> {
