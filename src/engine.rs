@@ -10,12 +10,71 @@ use sdl2::{
 };
 
 use crate::buffer::{ClearAuto, ClearColor, ColorBuffer, Drawable};
+use crate::utils::NumOption;
+
+pub struct EngineConfigParams {
+    pub window_title: Option<String>,
+    pub width: Option<usize>,
+    pub height: Option<usize>,
+    pub clear_color: Option<u32>,
+    pub fps: Option<u32>,
+}
+
+impl Default for EngineConfigParams {
+    fn default() -> Self {
+        EngineConfigParams {
+            window_title: None,
+            width: None,
+            height: None,
+            clear_color: None,
+            fps: None,
+        }
+    }
+}
 
 pub struct EngineConfig {
-    pub window_title: String,
-    pub width: usize,
-    pub height: usize,
-    pub clear_color: u32,
+    window_title: String,
+    width: usize,
+    height: usize,
+    clear_color: u32,
+    fps: u32,
+}
+
+impl EngineConfig {
+    pub fn new(params: EngineConfigParams) -> Self {
+        let default = EngineConfig::default();
+        EngineConfig {
+            window_title: params.window_title.unwrap_or(default.window_title),
+            width: params.width.unwrap_gt_or(0, default.width),
+            height: params.height.unwrap_gt_or(0, default.height),
+            clear_color: params.clear_color.unwrap_or(default.clear_color),
+            fps: params.fps.unwrap_gt_or(0, default.fps),
+        }
+    }
+
+    pub fn window_title(&self) -> &String {
+        &self.window_title
+    }
+
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+}
+
+impl Default for EngineConfig {
+    fn default() -> Self {
+        EngineConfig {
+            window_title: "3D renderer".to_string(),
+            width: 800,
+            height: 600,
+            clear_color: 0xFF000000,
+            fps: 60,
+        }
+    }
 }
 
 type EngineUpdateFn<'a> = &'a mut dyn FnMut(&mut Engine);
@@ -32,6 +91,13 @@ impl<'a> Engine<'a> {
     pub fn build(mut config: EngineConfig) -> Engine<'a> {
         let ctx = sdl2::init().unwrap();
         let video = ctx.video().unwrap();
+
+        config = EngineConfig {
+            width: config.width,
+            height: config.height,
+
+            ..EngineConfig::default()
+        };
 
         match video.display_mode(0, 0) {
             Ok(mode) => {
@@ -104,10 +170,6 @@ impl<'a> Engine<'a> {
         unsafe {
             (*f)(self);
         }
-        /*let up: *mut EngineUpdateFn = self.update.unwrap();
-        unsafe {
-            ((*up).update_fn)(self);
-        }*/
     }
 
     fn update(&mut self) {
@@ -129,7 +191,7 @@ impl<'a> Engine<'a> {
             self.render_buffer(&mut texture).unwrap();
             self.clear_buffer();
 
-            ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+            ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / self.config.fps));
         }
     }
 

@@ -2,12 +2,10 @@ use renderer3d::prelude::*;
 use vecx::Vec3;
 
 pub fn main() {
-    let mut eng = Engine::build(EngineConfig {
-        window_title: "3d Renderer".to_string(),
-        width: 800,
-        height: 600,
-        clear_color: 0xFF000000,
-    });
+    let mut eng = Engine::build(EngineConfig::new(EngineConfigParams {
+        window_title: Some("3d Renderer".to_string()),
+        ..EngineConfigParams::default()
+    }));
 
     let points = build_cube();
 
@@ -27,8 +25,8 @@ pub fn main() {
             let mut x = point.x();
             let mut y = point.y();
 
-            x += eng.config().width as f64 / 2.0;
-            y += eng.config().height as f64 / 2.0;
+            x += eng.config().width() as f64 / 2.0;
+            y += eng.config().height() as f64 / 2.0;
 
             eng.draw_rect(x as usize, y as usize, 4, 4, 0xFFFF0000);
         });
