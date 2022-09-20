@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use sdl2::{
     event::Event,
@@ -79,12 +79,68 @@ impl Default for EngineConfig {
 
 type EngineUpdateFn<'a> = &'a mut dyn FnMut(&mut Engine);
 
+pub struct EngineUpdate<'a> {
+    previous_frame_time: Instant,
+    target_frame_time: Duration,
+    update_fn: EngineUpdateFn<'a>,
+}
+
+impl<'a> EngineUpdate<'a> {
+    pub fn new(update_fn: EngineUpdateFn<'a>) -> Self {
+        EngineUpdate {
+            previous_frame_time: Instant::now(),
+            target_frame_time: Duration::new(0, 1_000_000_000u32 / 60),
+            update_fn,
+        }
+    }
+
+    /*pub fn on_update(&mut self, update_fn: EngineUpdateFn<'a>) {
+        self.update_fn = update_fn;
+    }*/
+
+    pub fn update(&mut self, engine: &mut Engine) {
+        self.target_frame_time = Duration::new(0, 1_000_000_000u32 / engine.config.fps);
+        let texture_creator = engine.canvas.texture_creator();
+        let mut texture = texture_creator
+            .create_texture(
+                PixelFormatEnum::ARGB8888,
+                sdl2::render::TextureAccess::Streaming,
+                engine.config.width as u32,
+                engine.config.height as u32,
+            )
+            .unwrap();
+
+        let mut running = true;
+        while running {
+            self.previous_frame_time = Instant::now();
+
+            running = engine.process_input();
+
+            (self.update_fn)(engine);
+            engine.render_buffer(&mut texture).unwrap();
+            engine.clear_buffer();
+
+            let now = Instant::now();
+            let frame_time = now - self.previous_frame_time;
+            println!(
+                "Time this frame {}ms {} FPS",
+                frame_time.as_millis(),
+                1000u128 / frame_time.as_millis()
+            );
+
+            if frame_time.as_nanos() < self.target_frame_time.as_nanos() {
+                ::std::thread::sleep(self.target_frame_time - frame_time);
+            }
+        }
+    }
+}
+
 pub struct Engine<'a> {
     config: EngineConfig,
     canvas: Canvas<Window>,
     color_buffer: ColorBuffer,
     event_pump: EventPump,
-    update: Option<EngineUpdateFn<'a>>,
+    whatevs: Option<EngineUpdateFn<'a>>,
 }
 
 impl<'a> Engine<'a> {
@@ -135,7 +191,7 @@ impl<'a> Engine<'a> {
             canvas,
             color_buffer,
             event_pump,
-            update: None,
+            whatevs: None,
         }
     }
 
@@ -158,41 +214,6 @@ impl<'a> Engine<'a> {
             }
         }
         true
-    }
-
-    pub fn on_update(&mut self, update: EngineUpdateFn<'a>) {
-        self.update = Some(update);
-        self.update();
-    }
-
-    fn custom_update(&mut self) {
-        let f: *mut EngineUpdateFn<'a> = self.update.as_mut().unwrap();
-        unsafe {
-            (*f)(self);
-        }
-    }
-
-    fn update(&mut self) {
-        let texture_creator = self.canvas.texture_creator();
-        let mut texture = texture_creator
-            .create_texture(
-                PixelFormatEnum::ARGB8888,
-                sdl2::render::TextureAccess::Streaming,
-                self.config.width as u32,
-                self.config.height as u32,
-            )
-            .unwrap();
-
-        let mut running = true;
-        while running {
-            running = self.process_input();
-
-            self.custom_update();
-            self.render_buffer(&mut texture).unwrap();
-            self.clear_buffer();
-
-            ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / self.config.fps));
-        }
     }
 
     fn clear_buffer(&mut self) {

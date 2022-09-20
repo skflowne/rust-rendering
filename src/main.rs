@@ -1,4 +1,4 @@
-use renderer3d::prelude::*;
+use renderer3d::{prelude::*, Mesh};
 use vecx::Vec3;
 
 pub fn main() {
@@ -9,16 +9,23 @@ pub fn main() {
 
     let points = build_cube();
 
+    let cube = Mesh::cube();
+
     let fov = 640.0;
     let cam_pos = Vec3(0.0, 0.0, -5.0);
     let mut rotation = Vec3(0.0, 0.0, 0.0);
 
     println!("Start update");
-    eng.on_update(&mut |eng: &mut Engine| {
+    EngineUpdate::new(&mut |eng| {
         eng.draw_grid(10, Some(0xFF333333));
         rotation = rotation + Vec3(0.01, 0.02, 0.0);
 
-        let mut points = transform_points(&points, rotation);
+        let mut points = cube
+            .face_vertices()
+            .map(|fv| transform_points(&fv, rotation))
+            .flatten()
+            .collect();
+
         points = project_points(&points, cam_pos, fov);
 
         points.iter().for_each(|point| {
@@ -30,7 +37,8 @@ pub fn main() {
 
             eng.draw_rect(x as usize, y as usize, 4, 4, 0xFFFF0000);
         });
-    });
+    })
+    .update(&mut eng);
 }
 
 fn build_cube() -> Vec<Vec3> {
