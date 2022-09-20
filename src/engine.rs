@@ -63,6 +63,14 @@ impl EngineConfig {
     pub fn height(&self) -> usize {
         self.height
     }
+
+    pub fn clear_color(&self) -> u32 {
+        self.clear_color
+    }
+
+    pub fn fps(&self) -> u32 {
+        self.fps
+    }
 }
 
 impl Default for EngineConfig {
@@ -77,83 +85,19 @@ impl Default for EngineConfig {
     }
 }
 
-type EngineUpdateFn<'a> = &'a mut dyn FnMut(&mut Engine);
-
-pub struct EngineUpdate<'a> {
-    previous_frame_time: Instant,
-    target_frame_time: Duration,
-    update_fn: EngineUpdateFn<'a>,
-}
-
-impl<'a> EngineUpdate<'a> {
-    pub fn new(update_fn: EngineUpdateFn<'a>) -> Self {
-        EngineUpdate {
-            previous_frame_time: Instant::now(),
-            target_frame_time: Duration::new(0, 1_000_000_000u32 / 60),
-            update_fn,
-        }
-    }
-
-    /*pub fn on_update(&mut self, update_fn: EngineUpdateFn<'a>) {
-        self.update_fn = update_fn;
-    }*/
-
-    pub fn update(&mut self, engine: &mut Engine) {
-        self.target_frame_time = Duration::new(0, 1_000_000_000u32 / engine.config.fps);
-        let texture_creator = engine.canvas.texture_creator();
-        let mut texture = texture_creator
-            .create_texture(
-                PixelFormatEnum::ARGB8888,
-                sdl2::render::TextureAccess::Streaming,
-                engine.config.width as u32,
-                engine.config.height as u32,
-            )
-            .unwrap();
-
-        let mut running = true;
-        while running {
-            self.previous_frame_time = Instant::now();
-
-            running = engine.process_input();
-
-            (self.update_fn)(engine);
-            engine.render_buffer(&mut texture).unwrap();
-            engine.clear_buffer();
-
-            let now = Instant::now();
-            let frame_time = now - self.previous_frame_time;
-            println!(
-                "Time this frame {}ms {} FPS",
-                frame_time.as_millis(),
-                1000u128 / frame_time.as_millis()
-            );
-
-            if frame_time.as_nanos() < self.target_frame_time.as_nanos() {
-                ::std::thread::sleep(self.target_frame_time - frame_time);
-            }
-        }
-    }
-}
+type EngineUpdateFn<'a> = &'a mut dyn FnMut(&mut EngineCore);
 
 pub struct Engine<'a> {
-    config: EngineConfig,
-    canvas: Canvas<Window>,
-    color_buffer: ColorBuffer,
-    event_pump: EventPump,
-    whatevs: Option<EngineUpdateFn<'a>>,
+    core: EngineCore,
+    update: Option<EngineUpdateFn<'a>>,
+    previous_frame_time: Instant,
+    target_frame_time: Duration,
 }
 
 impl<'a> Engine<'a> {
     pub fn build(mut config: EngineConfig) -> Engine<'a> {
         let ctx = sdl2::init().unwrap();
         let video = ctx.video().unwrap();
-
-        config = EngineConfig {
-            width: config.width,
-            height: config.height,
-
-            ..EngineConfig::default()
-        };
 
         match video.display_mode(0, 0) {
             Ok(mode) => {
@@ -186,19 +130,79 @@ impl<'a> Engine<'a> {
 
         println!("WindowCtx w: {} h: {}", width, height);
 
+        let fps = config.fps;
+
         Engine {
-            config,
-            canvas,
-            color_buffer,
-            event_pump,
-            whatevs: None,
+            core: EngineCore {
+                config,
+                canvas,
+                color_buffer,
+                event_pump,
+            },
+            update: None,
+            previous_frame_time: Instant::now(),
+            target_frame_time: Duration::new(0, 1_000_000_000u32 / fps),
         }
     }
 
     pub fn config(&self) -> &EngineConfig {
-        &self.config
+        &self.core.config
     }
 
+    pub fn on_update(&mut self, f: EngineUpdateFn<'a>) {
+        self.update = Some(f);
+        self.update();
+    }
+
+    pub fn user_update(&mut self) {
+        self.update.as_mut().unwrap()(&mut self.core);
+    }
+
+    pub fn update(&mut self) {
+        self.target_frame_time = Duration::new(0, 1_000_000_000u32 / self.core.config.fps);
+        let texture_creator = self.core.canvas.texture_creator();
+        let mut texture = texture_creator
+            .create_texture(
+                PixelFormatEnum::ARGB8888,
+                sdl2::render::TextureAccess::Streaming,
+                self.core.config.width as u32,
+                self.core.config.height as u32,
+            )
+            .unwrap();
+
+        let mut running = true;
+        while running {
+            self.previous_frame_time = Instant::now();
+
+            running = self.core.process_input();
+
+            self.user_update();
+            self.core.render_buffer(&mut texture).unwrap();
+            self.core.clear();
+
+            let now = Instant::now();
+            let frame_time = now - self.previous_frame_time;
+            /*println!(
+                "Time this frame {}ms {} FPS",
+                frame_time.as_millis(),
+                1000u128 / frame_time.as_millis()
+            );*/
+
+            if frame_time.as_nanos() < self.target_frame_time.as_nanos() {
+                ::std::thread::sleep(self.target_frame_time - frame_time);
+            }
+        }
+    }
+}
+
+pub struct EngineCore {
+    config: EngineConfig,
+    canvas: Canvas<Window>,
+    color_buffer: ColorBuffer,
+    event_pump: EventPump,
+}
+
+impl EngineCore {
     fn process_input(&mut self) -> bool {
         for event in self.event_pump.poll_iter() {
             match event {
@@ -216,10 +220,6 @@ impl<'a> Engine<'a> {
         true
     }
 
-    fn clear_buffer(&mut self) {
-        self.color_buffer.clear(self.config.clear_color);
-    }
-
     fn render_buffer(&mut self, texture: &mut Texture) -> Result<(), UpdateTextureError> {
         self.copy_buffer_to_canvas(texture)?;
 
@@ -234,15 +234,19 @@ impl<'a> Engine<'a> {
 
         Ok(())
     }
+
+    pub fn config(&self) -> &EngineConfig {
+        &self.config
+    }
 }
 
-impl<'a> ClearAuto for Engine<'a> {
+impl ClearAuto for EngineCore {
     fn clear(&mut self) {
         self.color_buffer.clear(self.config.clear_color);
     }
 }
 
-impl<'a> Drawable for Engine<'a> {
+impl Drawable for EngineCore {
     fn draw_grid(&mut self, spacing: usize, color: Option<u32>) {
         self.color_buffer.draw_grid(spacing, color);
     }
@@ -253,5 +257,9 @@ impl<'a> Drawable for Engine<'a> {
 
     fn draw_point(&mut self, x: usize, y: usize, color: u32) {
         self.color_buffer.draw_point(x, y, color);
+    }
+
+    fn draw_line(&mut self, x0: f64, y0: f64, x1: f64, y1: f64, color: u32) {
+        self.color_buffer.draw_line(x0, y0, x1, y1, color);
     }
 }

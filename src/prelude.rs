@@ -1,2 +1,2 @@
 pub use crate::{ClearAuto, ClearColor, Drawable};
-pub use crate::{Engine, EngineConfig, EngineConfigParams, EngineUpdate};
+pub use crate::{Engine, EngineConfig, EngineConfigParams};

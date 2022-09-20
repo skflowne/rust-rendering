@@ -75,12 +75,35 @@ impl Drawable for ColorBuffer {
     fn draw_point(&mut self, x: usize, y: usize, color: u32) {
         self.set_pixel(x, y, color);
     }
+
+    fn draw_line(&mut self, x0: f64, y0: f64, x1: f64, y1: f64, color: u32) {
+        let dx = (x1 - x0) as isize;
+        let dy = (y1 - y0) as isize;
+
+        let run_length = if dx.abs() >= dy.abs() {
+            dx.abs()
+        } else {
+            dy.abs()
+        };
+
+        let inc_x = dx as f64 / run_length as f64;
+        let inc_y = dy as f64 / run_length as f64;
+
+        let mut cx = x0 as f64;
+        let mut cy = y0 as f64;
+        for _ in 0..=run_length {
+            self.set_pixel(cx.round() as usize, cy.round() as usize, color);
+            cx += inc_x;
+            cy += inc_y;
+        }
+    }
 }
 
 pub trait Drawable {
     fn draw_grid(&mut self, spacing: usize, color: Option<u32>);
     fn draw_rect(&mut self, x: usize, y: usize, width: usize, height: usize, color: u32);
     fn draw_point(&mut self, x: usize, y: usize, color: u32);
+    fn draw_line(&mut self, x0: f64, y0: f64, x1: f64, y1: f64, color: u32);
 }
 
 pub trait ClearColor {

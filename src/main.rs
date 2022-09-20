@@ -1,5 +1,5 @@
-use renderer3d::{prelude::*, Mesh};
-use vecx::Vec3;
+use renderer3d::{prelude::*, Camera, Mesh};
+use vecx::{Vec2, Vec3};
 
 pub fn main() {
     let mut eng = Engine::build(EngineConfig::new(EngineConfigParams {
@@ -7,77 +7,57 @@ pub fn main() {
         ..EngineConfigParams::default()
     }));
 
-    let points = build_cube();
-
-    let cube = Mesh::cube();
+    //let points = build_cube();
 
     let fov = 640.0;
     let cam_pos = Vec3(0.0, 0.0, -5.0);
-    let mut rotation = Vec3(0.0, 0.0, 0.0);
+
+    //let mut cube = Mesh::cube();
+    let mut cube = Mesh::load_obj("./assets/f22.obj").unwrap();
+    let camera = Camera::new(cam_pos, fov);
 
     println!("Start update");
-    EngineUpdate::new(&mut |eng| {
+    eng.on_update(&mut |eng| {
         eng.draw_grid(10, Some(0xFF333333));
-        rotation = rotation + Vec3(0.01, 0.02, 0.0);
+        cube.transform.rotation += Vec3(0.01, 0.01, 0.0);
 
-        let mut points = cube
-            .face_vertices()
-            .map(|fv| transform_points(&fv, rotation))
+        let projected_vertices: Vec<Vec2> = cube
+            .triangles()
             .flatten()
+            .map(|vertex| {
+                let transformed = vertex.rot(cube.transform.rotation);
+                let projected = camera.project(&transformed);
+                let centered = Vec2(
+                    projected.x() + eng.config().width() as f64 / 2.0,
+                    projected.y() + eng.config().height() as f64 / 2.0,
+                );
+                return centered;
+            })
             .collect();
 
-        points = project_points(&points, cam_pos, fov);
+        projected_vertices.chunks(3).for_each(|tri| {
+            let a = tri[0];
+            let b = tri[1];
+            let c = tri[2];
+            //eng.draw_rect(a.x() as usize, a.y() as usize, 4, 4, 0xFF00FF00);
+            //eng.draw_rect(b.x() as usize, b.y() as usize, 4, 4, 0xFF00FF00);
+            //eng.draw_rect(c.x() as usize, c.y() as usize, 4, 4, 0xFF00FF00);
 
-        points.iter().for_each(|point| {
-            let mut x = point.x();
-            let mut y = point.y();
+            eng.draw_line(a.x(), a.y(), b.x(), b.y(), 0xFF00FF00);
+            eng.draw_line(b.x(), b.y(), c.x(), c.y(), 0xFF00FF00);
+            eng.draw_line(c.x(), c.y(), a.x(), a.y(), 0xFF00FF00);
+        });
 
-            x += eng.config().width() as f64 / 2.0;
-            y += eng.config().height() as f64 / 2.0;
+        /*for face in cube.faces {
+
+        }*/
+
+        /*projected_vertices.iter().for_each(|point| {
+            let x = point.x();
+            let y = point.y();
 
             eng.draw_rect(x as usize, y as usize, 4, 4, 0xFFFF0000);
-        });
-    })
-    .update(&mut eng);
-}
-
-fn build_cube() -> Vec<Vec3> {
-    const CUBE_SIZE: usize = 9;
-    const NUM_POINTS: usize = CUBE_SIZE * CUBE_SIZE * CUBE_SIZE;
-    let mut points = vec![Vec3(0.0, 0.0, 0.0); NUM_POINTS];
-
-    let mut i = 0;
-
-    let step = 25;
-    for x in (-100..=100).step_by(step).map(|x| x as f64 * 0.01) {
-        for y in (-100..=100).step_by(step).map(|y| y as f64 * 0.01) {
-            for z in (-100..=100).step_by(step).map(|z| z as f64 * 0.01) {
-                let point = Vec3(x, y, z);
-                println!("p {}: {}", i, (point.x() / point.z()));
-                points[i] = point;
-                i += 1;
-            }
-        }
-    }
-
-    points
-}
-
-fn transform_points(points: &Vec<Vec3>, rotation: Vec3) -> Vec<Vec3> {
-    points.iter().map(|p| p.rot(rotation)).collect()
-}
-
-fn project_points(points: &Vec<Vec3>, cam_pos: Vec3, fov: f64) -> Vec<Vec3> {
-    points
-        .iter()
-        .map(|point| {
-            let z = point.z() + cam_pos.z();
-            let mut x = point.x() / z;
-            let mut y = point.y() / z;
-            x *= fov;
-            y *= fov;
-
-            Vec3(x, y, z)
-        })
-        .collect()
+            eng.draw_line(x0, y0, x1, y1, 0xFFFF0000);
+        });*/
+    });
 }
