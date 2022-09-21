@@ -2,6 +2,7 @@ use std::error::Error;
 use std::{fs, vec};
 
 use ::vecx::Vec3;
+use vecx::VecX;
 
 const CUBE_VERTS: [Vec3; 8] = [
     Vec3(-1.0, -1.0, -1.0), // 1
@@ -40,6 +41,46 @@ pub struct Face(pub usize, pub usize, pub usize);
 
 #[derive(Debug, Clone, Copy)]
 pub struct Triangle(pub Vec3, pub Vec3, pub Vec3);
+
+impl Triangle {
+    /// Returns the first point of this triangle
+    pub fn a(&self) -> Vec3 {
+        self.0
+    }
+
+    /// Returns the second point of this triangle
+    pub fn b(&self) -> Vec3 {
+        self.1
+    }
+
+    /// Returns the third point of this triangle
+    pub fn c(&self) -> Vec3 {
+        self.2
+    }
+
+    /// Only applies rotation for now
+    pub fn transformed(&self, transform: &Transform) -> Self {
+        Triangle(
+            self.0.rot(&transform.rotation),
+            self.1.rot(&transform.rotation),
+            self.2.rot(&transform.rotation),
+        )
+    }
+
+    pub fn normal(&self) -> Vec3 {
+        let ab = self.b() - self.a();
+        let ac = self.c() - self.a();
+
+        return ab.cross(&ac);
+    }
+
+    pub fn should_cull(&self, viewer_position: Vec3) -> bool {
+        let normal = self.normal();
+        let tri_to_viewer = viewer_position - self.a();
+
+        return normal.dot(&tri_to_viewer) < 0.0;
+    }
+}
 
 impl IntoIterator for Triangle {
     type IntoIter = TriangleIter;

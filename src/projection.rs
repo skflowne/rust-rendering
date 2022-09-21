@@ -11,7 +11,7 @@ impl Camera {
     }
 
     pub fn project(&self, point: &Vec3) -> Vec2 {
-        let z = point.z() + self.position.z();
+        let z = point.z() - self.position.z();
         let mut x = point.x() / z;
         let mut y = point.y() / z;
         x *= self.fov;

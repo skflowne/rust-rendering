@@ -13,7 +13,7 @@ pub fn main() {
     let cam_pos = Vec3(0.0, 0.0, -5.0);
 
     //let mut cube = Mesh::cube();
-    let mut cube = Mesh::load_obj("./assets/f22.obj").unwrap();
+    let mut cube = Mesh::load_obj("./assets/cube.obj").unwrap();
     let camera = Camera::new(cam_pos, fov);
 
     println!("Start update");
@@ -23,10 +23,12 @@ pub fn main() {
 
         let projected_vertices: Vec<Vec2> = cube
             .triangles()
+            .map(|triangle| triangle.transformed(&cube.transform))
+            .filter(|triangle| triangle.should_cull(cam_pos))
             .flatten()
             .map(|vertex| {
-                let transformed = vertex.rot(cube.transform.rotation);
-                let projected = camera.project(&transformed);
+                //let transformed = vertex.rot(cube.transform.rotation);
+                let projected = camera.project(&vertex);
                 let centered = Vec2(
                     projected.x() + eng.config().width() as f64 / 2.0,
                     projected.y() + eng.config().height() as f64 / 2.0,
@@ -39,7 +41,7 @@ pub fn main() {
             let a = tri[0];
             let b = tri[1];
             let c = tri[2];
-            //eng.draw_rect(a.x() as usize, a.y() as usize, 4, 4, 0xFF00FF00);
+            eng.draw_rect(a.x() as usize, a.y() as usize, 4, 4, 0xFFAAFF00);
             //eng.draw_rect(b.x() as usize, b.y() as usize, 4, 4, 0xFF00FF00);
             //eng.draw_rect(c.x() as usize, c.y() as usize, 4, 4, 0xFF00FF00);
 
@@ -47,17 +49,5 @@ pub fn main() {
             eng.draw_line(b.x(), b.y(), c.x(), c.y(), 0xFF00FF00);
             eng.draw_line(c.x(), c.y(), a.x(), a.y(), 0xFF00FF00);
         });
-
-        /*for face in cube.faces {
-
-        }*/
-
-        /*projected_vertices.iter().for_each(|point| {
-            let x = point.x();
-            let y = point.y();
-
-            eng.draw_rect(x as usize, y as usize, 4, 4, 0xFFFF0000);
-            eng.draw_line(x0, y0, x1, y1, 0xFFFF0000);
-        });*/
     });
 }
