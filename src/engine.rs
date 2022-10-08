@@ -18,6 +18,8 @@ pub struct EngineConfigParams {
     pub height: Option<usize>,
     pub clear_color: Option<u32>,
     pub fps: Option<u32>,
+    pub render_mode: Option<RenderMode>,
+    pub backface_culling_enabled: Option<bool>,
 }
 
 impl Default for EngineConfigParams {
@@ -28,6 +30,8 @@ impl Default for EngineConfigParams {
             height: None,
             clear_color: None,
             fps: None,
+            render_mode: None,
+            backface_culling_enabled: None,
         }
     }
 }
@@ -38,6 +42,8 @@ pub struct EngineConfig {
     height: usize,
     clear_color: u32,
     fps: u32,
+    render_mode: RenderMode,
+    backface_culling_enabled: bool,
 }
 
 impl EngineConfig {
@@ -49,6 +55,10 @@ impl EngineConfig {
             height: params.height.unwrap_gt_or(0, default.height),
             clear_color: params.clear_color.unwrap_or(default.clear_color),
             fps: params.fps.unwrap_gt_or(0, default.fps),
+            render_mode: params.render_mode.unwrap_or(default.render_mode),
+            backface_culling_enabled: params
+                .backface_culling_enabled
+                .unwrap_or(default.backface_culling_enabled),
         }
     }
 
@@ -71,6 +81,22 @@ impl EngineConfig {
     pub fn fps(&self) -> u32 {
         self.fps
     }
+
+    pub fn render_mode(&self) -> &RenderMode {
+        &self.render_mode
+    }
+
+    pub fn backface_culling_enabled(&self) -> bool {
+        self.backface_culling_enabled
+    }
+
+    pub fn set_render_mode(&mut self, mode: RenderMode) {
+        self.render_mode = mode;
+    }
+
+    pub fn set_backface_culling_enabled(&mut self, enabled: bool) {
+        self.backface_culling_enabled = enabled;
+    }
 }
 
 impl Default for EngineConfig {
@@ -81,8 +107,17 @@ impl Default for EngineConfig {
             height: 600,
             clear_color: 0xFF000000,
             fps: 60,
+            render_mode: RenderMode::Solid,
+            backface_culling_enabled: true,
         }
     }
+}
+
+pub enum RenderMode {
+    VerticesWireframe,
+    Wireframe,
+    Solid,
+    SolidWireframe,
 }
 
 type EngineUpdateFn<'a> = &'a mut dyn FnMut(&mut EngineCore);
@@ -182,11 +217,7 @@ impl<'a> Engine<'a> {
 
             let now = Instant::now();
             let frame_time = now - self.previous_frame_time;
-            /*println!(
-                "Time this frame {}ms {} FPS",
-                frame_time.as_millis(),
-                1000u128 / frame_time.as_millis()
-            );*/
+            println!("Frame: {}ms", frame_time.as_millis(),);
 
             if frame_time.as_nanos() < self.target_frame_time.as_nanos() {
                 ::std::thread::sleep(self.target_frame_time - frame_time);
@@ -213,6 +244,54 @@ impl EngineCore {
                 } => {
                     println!("Received quit event, shutting down");
                     return false;
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Num1),
+                    ..
+                } => {
+                    println!("Wireframe and vertices");
+                    self.config.set_render_mode(RenderMode::VerticesWireframe);
+                    return true;
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Num2),
+                    ..
+                } => {
+                    println!("Wireframe");
+                    self.config.set_render_mode(RenderMode::Wireframe);
+                    return true;
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Num3),
+                    ..
+                } => {
+                    println!("Solid");
+                    self.config.set_render_mode(RenderMode::Solid);
+                    return true;
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Num4),
+                    ..
+                } => {
+                    println!("Solid Wireframe");
+                    self.config.set_render_mode(RenderMode::SolidWireframe);
+                    return true;
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::C),
+                    ..
+                } => {
+                    println!("Enable back-face culling");
+                    self.config.set_backface_culling_enabled(true);
+                    return true;
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::D),
+                    ..
+                } => {
+                    println!("Disable back-face culling");
+                    self.config.set_backface_culling_enabled(false);
+                    return true;
                 }
                 _ => {}
             }

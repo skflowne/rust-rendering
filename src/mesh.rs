@@ -68,10 +68,10 @@ impl Triangle {
     }
 
     pub fn normal(&self) -> Vec3 {
-        let ab = self.b() - self.a();
-        let ac = self.c() - self.a();
+        let ab = (self.b() - self.a()).normalized();
+        let ac = (self.c() - self.a()).normalized();
 
-        return ab.cross(&ac);
+        return ab.cross(&ac).normalized();
     }
 
     pub fn should_cull(&self, viewer_position: Vec3) -> bool {
@@ -210,7 +210,7 @@ impl Mesh {
                 let face_indices: Vec<usize> = face
                     .iter()
                     .map(|index| {
-                        println!("index {:?}", index);
+                        //println!("index {:?}", index);
                         let index: usize = index.parse().unwrap();
                         return index;
                     })
@@ -220,8 +220,8 @@ impl Mesh {
             })
             .collect();
 
-        println!("vertices {:?}", vertices);
-        println!("faces: {:?}", faces);
+        //println!("vertices {:?}", vertices);
+        //println!("faces: {:?}", faces);
 
         Ok(Mesh {
             vertices,
