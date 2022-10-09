@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 sdl2 = "0.35"
-
 vecx = { path = "../vecx" }
+rand = "0.8.5"
 
 [profile.dev]
 opt-level = 2

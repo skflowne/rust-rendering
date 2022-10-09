@@ -20,30 +20,41 @@ pub fn main() {
     println!("Start update");
     eng.on_update(&mut |eng| {
         eng.draw_grid(10, Some(0xFF333333));
-        cube.transform.rotation += Vec3(0.01, 0.0, 0.0);
+        cube.transform.rotation += Vec3(0.01, 0.01, 0.01);
 
-        let projected_vertices: Vec<Vec2> = cube
+        let mut projected_tris: Vec<Triangle> = cube
             .triangles()
             .map(|triangle| triangle.transformed(&cube.transform))
             .filter(|triangle| {
                 !eng.config().backface_culling_enabled() || triangle.should_cull(cam_pos)
             })
-            .flatten()
-            .map(|vertex| {
-                //let transformed = vertex.rot(cube.transform.rotation);
-                let projected = camera.project(&vertex);
-                let centered = Vec2(
-                    projected.x() + eng.config().width() as f64 / 2.0,
-                    projected.y() + eng.config().height() as f64 / 2.0,
-                );
-                return centered;
+            .map(|tri| {
+                tri.projected(&camera).translate(Vec3::from(Vec2(
+                    eng.config().width() as f64 / 2.0,
+                    eng.config().height() as f64 / 2.0,
+                )))
             })
             .collect();
 
-        projected_vertices.chunks(3).for_each(|tri| {
-            let a = tri[0];
-            let b = tri[1];
-            let c = tri[2];
+        /*.flatten()
+        .map(|vertex| {
+            //let transformed = vertex.rot(cube.transform.rotation);
+            let projected = camera.project(&vertex);
+            let centered = Vec3(
+                projected.x() + eng.config().width() as f64 / 2.0,
+                projected.y() + eng.config().height() as f64 / 2.0,
+                vertex.z(),
+            );
+            return centered;
+        })
+        .collect();*/
+
+        projected_tris.sort_by(|a, b| b.avg_z().total_cmp(&a.avg_z()));
+
+        projected_tris.iter().for_each(|tri| {
+            let a = tri.a();
+            let b = tri.b();
+            let c = tri.c();
 
             match eng.config().render_mode() {
                 RenderMode::VerticesWireframe => {
@@ -61,10 +72,10 @@ pub fn main() {
                     eng.draw_line(c.x(), c.y(), a.x(), a.y(), wireframe_color);
                 }
                 RenderMode::Solid => {
-                    draw_filled_triangle(a, b, c, 0xFFFFFFFF, eng);
+                    draw_filled_triangle(a.into(), b.into(), c.into(), tri.color(), eng);
                 }
                 RenderMode::SolidWireframe => {
-                    draw_filled_triangle(a, b, c, 0xFFFFFFFF, eng);
+                    draw_filled_triangle(a.into(), b.into(), c.into(), tri.color(), eng);
                     eng.draw_line(a.x(), a.y(), b.x(), b.y(), wireframe_color);
                     eng.draw_line(b.x(), b.y(), c.x(), c.y(), wireframe_color);
                     eng.draw_line(c.x(), c.y(), a.x(), a.y(), wireframe_color);

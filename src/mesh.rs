@@ -4,6 +4,8 @@ use std::{fs, vec};
 use ::vecx::Vec3;
 use vecx::VecX;
 
+use crate::Camera;
+
 const CUBE_VERTS: [Vec3; 8] = [
     Vec3(-1.0, -1.0, -1.0), // 1
     Vec3(-1.0, 1.0, -1.0),  // 2
@@ -17,30 +19,40 @@ const CUBE_VERTS: [Vec3; 8] = [
 
 const CUBE_FACES: [Face; 6 * 2] = [
     // front
-    Face(1, 2, 3),
-    Face(1, 3, 4),
+    Face(1, 2, 3, 0xFFFF0000),
+    Face(1, 3, 4, 0xFFFF0000),
     // right
-    Face(4, 3, 5),
-    Face(4, 5, 6),
+    Face(4, 3, 5, 0xFF00FF00),
+    Face(4, 5, 6, 0xFF00FF00),
     // back
-    Face(6, 5, 7),
-    Face(6, 7, 8),
+    Face(6, 5, 7, 0xFF0000FF),
+    Face(6, 7, 8, 0xFF0000FF),
     // left
-    Face(8, 7, 2),
-    Face(8, 2, 1),
+    Face(8, 7, 2, 0xFFFFFF00),
+    Face(8, 2, 1, 0xFFFFFF00),
     // top
-    Face(2, 7, 5),
-    Face(2, 5, 3),
+    Face(2, 7, 5, 0xFF00FFFF),
+    Face(2, 5, 3, 0xFF00FFFF),
     // bottom
-    Face(6, 8, 1),
-    Face(6, 1, 4),
+    Face(6, 8, 1, 0xFFFF00FF),
+    Face(6, 1, 4, 0xFFFF00FF),
 ];
 
 #[derive(Debug, Clone, Copy)]
-pub struct Face(pub usize, pub usize, pub usize);
+pub struct Face(pub usize, pub usize, pub usize, pub u32);
+
+impl Face {
+    pub fn color(&self) -> u32 {
+        self.3
+    }
+
+    pub fn set_color(&mut self, color: u32) {
+        self.3 = color;
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
-pub struct Triangle(pub Vec3, pub Vec3, pub Vec3);
+pub struct Triangle(pub Vec3, pub Vec3, pub Vec3, pub u32);
 
 impl Triangle {
     /// Returns the first point of this triangle
@@ -58,12 +70,39 @@ impl Triangle {
         self.2
     }
 
+    pub fn color(&self) -> u32 {
+        self.3
+    }
+
+    pub fn avg_z(&self) -> f64 {
+        (self.0.z() + self.1.z() + self.2.z()) / 3.0
+    }
+
     /// Only applies rotation for now
     pub fn transformed(&self, transform: &Transform) -> Self {
         Triangle(
             self.0.rot(&transform.rotation),
             self.1.rot(&transform.rotation),
             self.2.rot(&transform.rotation),
+            self.3,
+        )
+    }
+
+    pub fn projected(&self, cam: &Camera) -> Triangle {
+        Triangle(
+            Vec3::from((cam.project(&self.a()), self.a().z())),
+            Vec3::from((cam.project(&self.b()), self.b().z())),
+            Vec3::from((cam.project(&self.c()), self.c().z())),
+            self.3,
+        )
+    }
+
+    pub fn translate(&self, translation: Vec3) -> Triangle {
+        Triangle(
+            self.0 + translation,
+            self.1 + translation,
+            self.2 + translation,
+            self.3,
         )
     }
 
@@ -141,13 +180,13 @@ impl<'a> Iterator for MeshIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current < self.mesh.faces.len() {
-            let tri = self.mesh.faces[self.current];
-            let v1 = self.mesh.vertices[tri.0 - 1];
-            let v2 = self.mesh.vertices[tri.1 - 1];
-            let v3 = self.mesh.vertices[tri.2 - 1];
+            let face = self.mesh.faces[self.current];
+            let v1 = self.mesh.vertices[face.0 - 1];
+            let v2 = self.mesh.vertices[face.1 - 1];
+            let v3 = self.mesh.vertices[face.2 - 1];
 
             self.current += 1;
-            return Some(Triangle(v1, v2, v3));
+            return Some(Triangle(v1, v2, v3, face.color()));
         }
 
         None
@@ -216,10 +255,28 @@ impl Mesh {
                     })
                     .collect();
 
-                return Face(face_indices[0], face_indices[1], face_indices[2]);
+                return Face(
+                    face_indices[0],
+                    face_indices[1],
+                    face_indices[2],
+                    rand::random(),
+                );
             })
             .collect();
 
+        /*faces = faces
+        .chunks(2)
+        .map(|faces| {
+            let color: u32 = rand::random();
+            let mut f1 = Face::from(faces[0]);
+            let mut f2 = Face::from(faces[1]);
+
+            f1.set_color(color);
+            f2.set_color(color);
+            return [f1, f2];
+        })
+        .flatten()
+        .collect();*/
         //println!("vertices {:?}", vertices);
         //println!("faces: {:?}", faces);
 
