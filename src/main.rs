@@ -1,3 +1,5 @@
+use std::f64::consts::PI;
+
 use renderer3d::{prelude::*, Camera, Mesh};
 use vecx::{Vec2, Vec3};
 
@@ -9,15 +11,22 @@ pub fn main() {
 
     //let points = build_cube();
 
-    let fov = 640.0;
+    let fov = PI / 3.0;
     let cam_pos = Vec3(0.0, 0.0, -5.0);
 
     //let mut cube = Mesh::cube();
     let mut mesh = Mesh::load_obj("./assets/f22.obj").unwrap();
-    let camera = Camera::new(cam_pos, fov);
+    mesh.transform.position = Vec3(0.0, 0.0, 0.0);
+    let camera = Camera::new(
+        cam_pos,
+        CameraProjection::perspective(eng.config().aspect_ratio(), fov, 0.1, 100.0),
+    );
     let wireframe_color = 0xFF00FF00;
 
-    println!("Start update");
+    let half_width = eng.config().width() as f64 / 2.0;
+    let half_height = eng.config().height() as f64 / 2.0;
+
+    println!("Start update: {}", eng.config().aspect_ratio());
     eng.on_update(&mut |eng| {
         eng.draw_grid(10, Some(0xFF333333));
         mesh.transform.rotation += Vec3(0.01, 0.0, 0.01);
@@ -26,15 +35,18 @@ pub fn main() {
 
         let mut projected_tris: Vec<Triangle> = mesh
             .triangles()
-            .map(|triangle| triangle.matrix_transform(&mesh.transform))
+            .map(|triangle| {
+                triangle
+                    .matrix_transform(&mesh.transform)
+                    .translate(Vec3(0.0, 0.0, -cam_pos.z()))
+            })
             .filter(|triangle| {
                 !eng.config().backface_culling_enabled() || triangle.should_cull(cam_pos)
             })
             .map(|tri| {
-                tri.projected(&camera).translate(Vec3::from(Vec2(
-                    eng.config().width() as f64 / 2.0,
-                    eng.config().height() as f64 / 2.0,
-                )))
+                tri.projected(&camera)
+                    .scale(Vec3(half_width, half_height, 1.0))
+                    .translate(Vec3(half_width, half_height, 0.0))
             })
             .collect();
 

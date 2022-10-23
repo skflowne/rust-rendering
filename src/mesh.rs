@@ -4,7 +4,7 @@ use std::{fs, vec};
 use ::vecx::{Vec3, VecX};
 use vecx::Matrix;
 
-use crate::{utils, Camera};
+use crate::Camera;
 
 const CUBE_VERTS: [Vec3; 8] = [
     Vec3(-1.0, -1.0, -1.0), // 1
@@ -84,10 +84,10 @@ impl Triangle {
 
     pub fn projected(&self, cam: &Camera) -> Triangle {
         Triangle(
-            Vec3::from((cam.project(&self.a()), self.a().z())),
-            Vec3::from((cam.project(&self.b()), self.b().z())),
-            Vec3::from((cam.project(&self.c()), self.c().z())),
-            self.3,
+            Vec3::from(cam.project(&self.a())),
+            Vec3::from(cam.project(&self.b())),
+            Vec3::from(cam.project(&self.c())),
+            self.color(),
         )
     }
 

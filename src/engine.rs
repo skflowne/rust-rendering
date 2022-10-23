@@ -49,10 +49,14 @@ pub struct EngineConfig {
 impl EngineConfig {
     pub fn new(params: EngineConfigParams) -> Self {
         let default = EngineConfig::default();
+
+        let width = params.width.unwrap_gt_or(0, default.width);
+        let height = params.height.unwrap_gt_or(0, default.height);
+
         EngineConfig {
             window_title: params.window_title.unwrap_or(default.window_title),
-            width: params.width.unwrap_gt_or(0, default.width),
-            height: params.height.unwrap_gt_or(0, default.height),
+            width,
+            height,
             clear_color: params.clear_color.unwrap_or(default.clear_color),
             fps: params.fps.unwrap_gt_or(0, default.fps),
             render_mode: params.render_mode.unwrap_or(default.render_mode),
@@ -72,6 +76,10 @@ impl EngineConfig {
 
     pub fn height(&self) -> usize {
         self.height
+    }
+
+    pub fn aspect_ratio(&self) -> f64 {
+        (self.height as f64) / (self.width as f64)
     }
 
     pub fn clear_color(&self) -> u32 {
@@ -101,10 +109,12 @@ impl EngineConfig {
 
 impl Default for EngineConfig {
     fn default() -> Self {
+        let width = 800;
+        let height = 600;
         EngineConfig {
             window_title: "3D renderer".to_string(),
-            width: 800,
-            height: 600,
+            width,
+            height,
             clear_color: 0xFF000000,
             fps: 60,
             render_mode: RenderMode::Solid,
