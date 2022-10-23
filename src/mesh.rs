@@ -1,10 +1,10 @@
 use std::error::Error;
 use std::{fs, vec};
 
-use ::vecx::Vec3;
-use vecx::VecX;
+use ::vecx::{Vec3, VecX};
+use vecx::Matrix;
 
-use crate::Camera;
+use crate::{utils, Camera};
 
 const CUBE_VERTS: [Vec3; 8] = [
     Vec3(-1.0, -1.0, -1.0), // 1
@@ -74,18 +74,12 @@ impl Triangle {
         self.3
     }
 
-    pub fn avg_z(&self) -> f64 {
-        (self.0.z() + self.1.z() + self.2.z()) / 3.0
+    pub fn set_color(&mut self, color: u32) {
+        self.3 = color;
     }
 
-    /// Only applies rotation for now
-    pub fn transformed(&self, transform: &Transform) -> Self {
-        Triangle(
-            self.0.rot(&transform.rotation),
-            self.1.rot(&transform.rotation),
-            self.2.rot(&transform.rotation),
-            self.3,
-        )
+    pub fn avg_z(&self) -> f64 {
+        (self.0.z() + self.1.z() + self.2.z()) / 3.0
     }
 
     pub fn projected(&self, cam: &Camera) -> Triangle {
@@ -97,25 +91,84 @@ impl Triangle {
         )
     }
 
+    /// Only applies rotation and scale TODO: implement translation
+    pub fn transformed(&self, transform: &Transform) -> Self {
+        let mut transformed_tri = self.scale(transform.scale);
+        transformed_tri = transformed_tri.rotate(transform.rotation);
+        transformed_tri = transformed_tri.translate(transform.position);
+        transformed_tri
+    }
+
+    pub fn matrix_transform(&self, transform: &Transform) -> Self {
+        let scale_matrix = Matrix::m4_scale(transform.scale);
+        let rot_x_matrix = Matrix::m4_rotate_x(transform.rotation.x());
+        let rot_y_matrix = Matrix::m4_rotate_y(transform.rotation.y());
+        let rot_z_matrix = Matrix::m4_rotate_z(transform.rotation.z());
+        let translation_matrix = Matrix::m4_translate(transform.position);
+
+        //println!("Tri self {:?}", self);
+
+        //translation_mat * rot_z_mat * rot_y_mat * rot_x_mat * scale_mat;
+        let mut world_matrix: Matrix = Matrix::id4();
+        world_matrix = scale_matrix * world_matrix;
+        world_matrix = rot_z_matrix * world_matrix;
+        world_matrix = rot_y_matrix * world_matrix;
+        world_matrix = rot_x_matrix * world_matrix;
+        world_matrix = translation_matrix * world_matrix;
+
+        let transformed = Triangle(
+            Vec3::from(&world_matrix * &self.0.as_mat4(1.0)),
+            Vec3::from(&world_matrix * &self.1.as_mat4(1.0)),
+            Vec3::from(&world_matrix * &self.2.as_mat4(1.0)),
+            self.color(),
+        );
+
+        //let transformed = Triangle(self.0, self.1, self.2, self.color());
+
+        //println!("Tri outT {:?}", transformed);
+        transformed
+    }
+
     pub fn translate(&self, translation: Vec3) -> Triangle {
         Triangle(
             self.0 + translation,
             self.1 + translation,
             self.2 + translation,
-            self.3,
+            self.color(),
+        )
+    }
+
+    pub fn scale(&self, scale: Vec3) -> Triangle {
+        Triangle(self.0 * scale, self.1 * scale, self.2 * scale, self.color())
+    }
+
+    pub fn rotate(&self, rotation: Vec3) -> Triangle {
+        Triangle(
+            self.0.rot(&rotation),
+            self.1.rot(&rotation),
+            self.2.rot(&rotation),
+            self.color(),
         )
     }
 
     pub fn normal(&self) -> Vec3 {
+        if self.a() == self.b() || self.b() == self.c() {
+            return Vec3::zero();
+        }
+
         let ab = (self.b() - self.a()).normalized();
         let ac = (self.c() - self.a()).normalized();
 
-        return ab.cross(&ac).normalized();
+        return ac.cross(&ab).normalized();
     }
 
     pub fn should_cull(&self, viewer_position: Vec3) -> bool {
         let normal = self.normal();
-        let tri_to_viewer = viewer_position - self.a();
+        if normal == Vec3::ZERO {
+            return true;
+        }
+
+        let tri_to_viewer = (viewer_position - self.a()).normalized();
 
         return normal.dot(&tri_to_viewer) < 0.0;
     }
@@ -129,6 +182,18 @@ impl IntoIterator for Triangle {
             current: 0,
             vertices: vec![self.0, self.1, self.2],
         }
+    }
+}
+
+impl FromIterator<Vec3> for Triangle {
+    fn from_iter<T: IntoIterator<Item = Vec3>>(iter: T) -> Self {
+        let mut iterator = iter.into_iter();
+        Triangle(
+            iterator.next().unwrap(),
+            iterator.next().unwrap(),
+            iterator.next().unwrap(),
+            0xFFFFFFF,
+        )
     }
 }
 
@@ -151,11 +216,20 @@ impl Iterator for TriangleIter {
     }
 }
 
-#[derive(Default)]
 pub struct Transform {
     pub position: Vec3,
     pub rotation: Vec3,
     pub scale: Vec3,
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Transform {
+            position: Vec3::zero(),
+            rotation: Vec3::zero(),
+            scale: Vec3::one(),
+        }
+    }
 }
 
 pub struct Mesh {
@@ -205,7 +279,7 @@ impl Mesh {
             transform: Transform {
                 position: Vec3(0.0, 0.0, 0.0),
                 rotation: Vec3(0.0, 0.0, 0.0),
-                scale: Vec3(0.0, 0.0, 0.0),
+                scale: Vec3(1.0, 1.0, 1.0),
             },
         }
     }

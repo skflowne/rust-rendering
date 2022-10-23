@@ -13,18 +13,20 @@ pub fn main() {
     let cam_pos = Vec3(0.0, 0.0, -5.0);
 
     //let mut cube = Mesh::cube();
-    let mut cube = Mesh::load_obj("./assets/f22.obj").unwrap();
+    let mut mesh = Mesh::load_obj("./assets/f22.obj").unwrap();
     let camera = Camera::new(cam_pos, fov);
     let wireframe_color = 0xFF00FF00;
 
     println!("Start update");
     eng.on_update(&mut |eng| {
         eng.draw_grid(10, Some(0xFF333333));
-        cube.transform.rotation += Vec3(0.01, 0.01, 0.01);
+        mesh.transform.rotation += Vec3(0.01, 0.0, 0.01);
+        //mesh.transform.scale += Vec3(0.001, 0.001, 0.001);
+        //mesh.transform.position += Vec3(0.01, 0.0, 0.0);
 
-        let mut projected_tris: Vec<Triangle> = cube
+        let mut projected_tris: Vec<Triangle> = mesh
             .triangles()
-            .map(|triangle| triangle.transformed(&cube.transform))
+            .map(|triangle| triangle.matrix_transform(&mesh.transform))
             .filter(|triangle| {
                 !eng.config().backface_culling_enabled() || triangle.should_cull(cam_pos)
             })
@@ -35,19 +37,6 @@ pub fn main() {
                 )))
             })
             .collect();
-
-        /*.flatten()
-        .map(|vertex| {
-            //let transformed = vertex.rot(cube.transform.rotation);
-            let projected = camera.project(&vertex);
-            let centered = Vec3(
-                projected.x() + eng.config().width() as f64 / 2.0,
-                projected.y() + eng.config().height() as f64 / 2.0,
-                vertex.z(),
-            );
-            return centered;
-        })
-        .collect();*/
 
         projected_tris.sort_by(|a, b| b.avg_z().total_cmp(&a.avg_z()));
 
@@ -127,10 +116,6 @@ fn draw_flat_top(a: Vec2, b: Vec2, c: Vec2, color: u32, eng: &mut EngineCore) {
         x1 += s1;
         x2 += s2;
     }
-
-    /*eng.draw_line(a.x(), a.y(), b.x(), b.y(), 0xFF00FF00);
-    eng.draw_line(b.x(), b.y(), c.x(), c.y(), 0xFF00FF00);
-    eng.draw_line(c.x(), c.y(), a.x(), a.y(), 0xFF00FF00);*/
 }
 
 fn draw_flat_bottom(a: Vec2, b: Vec2, c: Vec2, color: u32, eng: &mut EngineCore) {
@@ -155,10 +140,4 @@ fn draw_flat_bottom(a: Vec2, b: Vec2, c: Vec2, color: u32, eng: &mut EngineCore)
         x1 += s1;
         x2 += s2;
     }
-
-    //eng.draw_line(b.x(), b.y(), c.x(), c.y(), 0xFF00FF00);
-    //eng.draw_line(c.x(), c.y(), a.x(), a.y(), 0xFF00FF00);
-    /*eng.draw_line(a.x(), a.y(), b.x(), b.y(), 0xFF00FF00);
-    eng.draw_line(b.x(), b.y(), c.x(), c.y(), 0xFF00FF00);
-    eng.draw_line(c.x(), c.y(), a.x(), a.y(), 0xFF00FF00);*/
 }
