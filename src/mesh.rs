@@ -333,7 +333,7 @@ impl Mesh {
                     face_indices[0],
                     face_indices[1],
                     face_indices[2],
-                    rand::random(),
+                    0xFFFFFFFF, //rand::random(),
                 );
             })
             .collect();

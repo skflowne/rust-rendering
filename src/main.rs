@@ -1,7 +1,7 @@
 use std::f64::consts::PI;
 
-use renderer3d::{prelude::*, Camera, Mesh};
-use vecx::{Vec2, Vec3};
+use renderer3d::{prelude::*, Camera, GlobalLight, Mesh};
+use vecx::{Vec2, Vec3, VecX};
 
 pub fn main() {
     let mut eng = Engine::build(EngineConfig::new(EngineConfigParams {
@@ -26,19 +26,25 @@ pub fn main() {
     let half_width = eng.config().width() as f64 / 2.0;
     let half_height = eng.config().height() as f64 / 2.0;
 
+    let global_light = GlobalLight::new(Vec3(0.0, -1.0, 1.0).normalized());
+
     println!("Start update: {}", eng.config().aspect_ratio());
     eng.on_update(&mut |eng| {
         eng.draw_grid(10, Some(0xFF333333));
-        mesh.transform.rotation += Vec3(0.01, 0.0, 0.01);
+        mesh.transform.rotation += Vec3(0.005, 0.005, 0.0);
         //mesh.transform.scale += Vec3(0.001, 0.001, 0.001);
         //mesh.transform.position += Vec3(0.01, 0.0, 0.0);
 
         let mut projected_tris: Vec<Triangle> = mesh
             .triangles()
             .map(|triangle| {
-                triangle
-                    .matrix_transform(&mesh.transform)
-                    .translate(Vec3(0.0, 0.0, -cam_pos.z()))
+                global_light.shaded_triangle(
+                    &triangle.matrix_transform(&mesh.transform).translate(Vec3(
+                        0.0,
+                        0.0,
+                        -cam_pos.z(),
+                    )),
+                )
             })
             .filter(|triangle| {
                 !eng.config().backface_culling_enabled() || triangle.should_cull(cam_pos)
