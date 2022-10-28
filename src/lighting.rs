@@ -14,7 +14,7 @@ impl GlobalLight {
 
     pub fn new(direction: Vec3) -> Self {
         GlobalLight {
-            direction: Vec3(direction.0, direction.1, -direction.2),
+            direction: Vec3(direction.0, -direction.1, -direction.2),
         }
     }
 

@@ -31,7 +31,7 @@ pub fn main() {
     println!("Start update: {}", eng.config().aspect_ratio());
     eng.on_update(&mut |eng| {
         eng.draw_grid(10, Some(0xFF333333));
-        mesh.transform.rotation += Vec3(0.005, 0.005, 0.0);
+        mesh.transform.rotation += Vec3(0.01, 0.00, 0.0);
         //mesh.transform.scale += Vec3(0.001, 0.001, 0.001);
         //mesh.transform.position += Vec3(0.01, 0.0, 0.0);
 
@@ -51,7 +51,7 @@ pub fn main() {
             })
             .map(|tri| {
                 tri.projected(&camera)
-                    .scale(Vec3(half_width, half_height, 1.0))
+                    .scale(Vec3(half_width, -half_height, 1.0))
                     .translate(Vec3(half_width, half_height, 0.0))
             })
             .collect();
