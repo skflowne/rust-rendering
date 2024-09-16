@@ -1,3 +1,4 @@
+use image::{ImageBuffer, Rgba};
 use std::time::{Duration, Instant};
 
 use sdl2::{
@@ -32,6 +33,22 @@ impl Default for EngineConfigParams {
             fps: None,
             render_mode: None,
             backface_culling_enabled: None,
+        }
+    }
+}
+
+impl Default for EngineConfig {
+    fn default() -> Self {
+        let width = 800;
+        let height = 600;
+        EngineConfig {
+            window_title: "3D renderer".to_string(),
+            width,
+            height,
+            clear_color: 0xFF000000,
+            fps: 60,
+            render_mode: RenderMode::Solid,
+            backface_culling_enabled: true,
         }
     }
 }
@@ -107,22 +124,6 @@ impl EngineConfig {
     }
 }
 
-impl Default for EngineConfig {
-    fn default() -> Self {
-        let width = 800;
-        let height = 600;
-        EngineConfig {
-            window_title: "3D renderer".to_string(),
-            width,
-            height,
-            clear_color: 0xFF000000,
-            fps: 60,
-            render_mode: RenderMode::Solid,
-            backface_culling_enabled: true,
-        }
-    }
-}
-
 pub enum RenderMode {
     VerticesWireframe,
     Wireframe,
@@ -148,6 +149,7 @@ impl<'a> Engine<'a> {
             Ok(mode) => {
                 config.width = mode.w as usize;
                 config.height = mode.h as usize;
+                config.fps = mode.refresh_rate as u32;
                 println!("Display mode: {:?}", mode);
             }
             Err(e) => eprintln!(
@@ -205,6 +207,7 @@ impl<'a> Engine<'a> {
 
     pub fn update(&mut self) {
         self.target_frame_time = Duration::new(0, 1_000_000_000u32 / self.core.config.fps);
+
         let texture_creator = self.core.canvas.texture_creator();
         let mut texture = texture_creator
             .create_texture(
@@ -222,16 +225,23 @@ impl<'a> Engine<'a> {
             running = self.core.process_input();
 
             self.user_update();
-            self.core.render_buffer(&mut texture).unwrap();
-            self.core.clear();
+
+            match self.core.render_buffer(&mut texture) {
+                Ok(()) => (),
+                Err(e) => {
+                    eprintln!("Failed to update texture: {}", e);
+                }
+            }
 
             let now = Instant::now();
             let frame_time = now - self.previous_frame_time;
-            println!("Frame: {}ms", frame_time.as_millis(),);
+            //println!("Frame: {}ms", frame_time.as_millis(),);
 
             if frame_time.as_nanos() < self.target_frame_time.as_nanos() {
                 ::std::thread::sleep(self.target_frame_time - frame_time);
             }
+
+            self.core.clear();
         }
     }
 }
@@ -247,6 +257,7 @@ impl EngineCore {
     fn process_input(&mut self) -> bool {
         for event in self.event_pump.poll_iter() {
             match event {
+                // QUIT
                 Event::Quit { .. }
                 | Event::KeyDown {
                     keycode: Some(Keycode::Escape),
@@ -254,6 +265,19 @@ impl EngineCore {
                 } => {
                     println!("Received quit event, shutting down");
                     return false;
+                }
+                // KEYBOARD EVENTS
+                Event::KeyUp {
+                    keycode: Some(Keycode::S),
+                    ..
+                } => {
+                    let file_path: &str = "screenshot.jpg";
+                    println!("Saving screenshot");
+                    match self.save_screenshot(file_path) {
+                        Ok(()) => (),
+                        Err(_e) => eprint!("Failed to write screenshot"),
+                    }
+                    return true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::Num1),
@@ -318,8 +342,37 @@ impl EngineCore {
     }
 
     fn copy_buffer_to_canvas(&mut self, texture: &mut Texture) -> Result<(), UpdateTextureError> {
-        texture.update(None, self.color_buffer.pixels(), self.config.width * 4)?;
+        /*texture.update(None, self.color_buffer.pixels(), self.config.width * 4)?;
+        self.canvas.copy(texture, None, None).unwrap();*/
+
+        texture
+            .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
+                let pixels = self.color_buffer.pixels(); // Get the pixel data from color_buffer
+                buffer.copy_from_slice(pixels); // Copy pixel data into the locked texture buffer
+            })
+            .map_err(UpdateTextureError::SdlError)?;
+
         self.canvas.copy(texture, None, None).unwrap();
+
+        Ok(())
+    }
+
+    fn save_screenshot(&mut self, file_path: &str) -> Result<(), String> {
+        let (width, height) = self.canvas.output_size().map_err(|e| e.to_string())?;
+
+        // Read pixels from the canvas
+        let pixel_data = self
+            .canvas
+            .read_pixels(None, PixelFormatEnum::RGB888)
+            .map_err(|e| e.to_string())?;
+
+        // Convert the pixel data to an ImageBuffer
+        let img =
+            ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(width as u32, height as u32, pixel_data)
+                .ok_or("Failed to create image buffer")?;
+
+        // Save the image as PNG
+        img.save(file_path).map_err(|e| e.to_string())?;
 
         Ok(())
     }
